@@ -1,3 +1,5 @@
+from math import floor
+
 import numpy as np
 import pandas as pd
 
@@ -9,28 +11,42 @@ class MortalityTable():
         start_age=0, 
         select_rates=None,
         age_basis='anb',
-        interp_method='u',
+        force='u',
         *args,
         **kwargs):
-        if interp_method.lower() not in ['u', 'c']:
-            raise ValueError("interp_method must be either u (uniform) or c (constant)")
+        if force.lower() not in ['u', 'c']:
+            raise ValueError("force must be either u (uniform) or c (constant)")
         if age_basis.lower() not in ['anb', 'alb']:
             raise ValueError("age_basis must be either anb (age nearest birthday) or alb (age last birthday)")
         self.age_basis = age_basis
-        self.interp_method = interp_method.lower()
+        self.force = force.lower()
         self.start_age = start_age
         self.qx = qx_rates
         self.__dict__.update(kwargs)
 
     def npx(self, n, x):
-        start_index = x - self.start_age
-        end_index = start_index + n
-        if start_index < 0:
-            Warning(f'Mortality from age {x} to {self.start_age} assumed to be 0')
-            start_index = 0
-        if end_index < 0:
+        if n < 0 or x < 0:
+            raise ValueError('n and x cannot be negative')
+        if n == 0:
             return 1
-        return np.product(self.px[start_index:end_index])
+        if n < 1:
+            if self.force == 'u':
+                return 1 - self.qx[x] * n
+            elif self.force == 'c':
+                return self.px[x] ** n
+            else:
+                raise ValueError('force must be u (uniform) or c (constant)')
+        else:
+            remain = n - floor(n)
+            n = floor(n)
+            x_i = x - self.start_age
+            x_end = x_i + n
+            if x_i < 0:
+                Warning(f'Mortality from age {x} to {self.start_age} assumed to be 0')
+                x_i = 0
+            if x_end < 0:
+                return 1
+            return np.product(self.px[x_i:x_end]) * self.npx(remain, x+n)
 
     def nqx(self, n, x):
         return 1 - self.npx(n, x)
@@ -55,6 +71,10 @@ class MortalityTable():
     @property
     def ages(self):
         return np.array([self.start_age + i for i in range(len(self.qx))])
+
+    @property
+    def df(self):
+        return pd.DataFrame({'qx': self.qx, 'px': self.px}, index=self.ages)
 
     @qx.setter
     def qx(self, rates):
