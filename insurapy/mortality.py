@@ -1,8 +1,19 @@
 from math import floor
+from enum import Enum, unique
 
 import numpy as np
 import pandas as pd
 
+@unique
+class FracAge(Enum):
+    Uniform = 'Uniform'
+    Constant = 'Constant'
+
+@unique
+class AgeBasis(Enum):
+    AgeNextBirthday = 'AgeNextBirthday'
+    AgeLastBirthday = 'AgeLastBirthday'
+    
 class MortalityTable():
 
     def __init__(
@@ -10,16 +21,16 @@ class MortalityTable():
         qx_rates, 
         start_age=0, 
         select_rates=None,
-        age_basis='anb',
-        force='u',
+        age_basis=AgeBasis.AgeNextBirthday,
+        frac_age=FracAge.Uniform,
         *args,
         **kwargs):
-        if force.lower() not in ['u', 'c']:
-            raise ValueError("force must be either u (uniform) or c (constant)")
-        if age_basis.lower() not in ['anb', 'alb']:
-            raise ValueError("age_basis must be either anb (age nearest birthday) or alb (age last birthday)")
+        if not isinstance(age_basis, AgeBasis):
+            raise TypeError('age_basis must be an instance of AgeBasis Enum')
+        if not isinstance(frac_age, FracAge):
+            raise TypeError('frac_age must be an instance of FracAge Enum')
         self.age_basis = age_basis
-        self.force = force.lower()
+        self.frac_age = frac_age
         self.start_age = start_age
         self.qx = qx_rates
         self.__dict__.update(kwargs)
